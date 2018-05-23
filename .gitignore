@@ -1,7 +1,8 @@
 *.pyc
-*.cache
+*cache*
 venv
 .pytest*
 *.swp
 *database*
 *.db
+
