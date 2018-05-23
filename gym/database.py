@@ -243,8 +243,9 @@ def get_session_details(**kwargs):
     return _execute_query(query, args)
 
 
-def update_session_details(_id, new_vals):
-    query, args = _construct_update_query(settings.SESSION_DETAILS_TABLE, _id, new_vals)
+def update_session_details(_id, **kwargs):
+    query, args = _construct_update_query(settings.SESSION_DETAILS_TABLE, _id,
+                                         kwargs)
     return _execute_query(query, args)
 
 

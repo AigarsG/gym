@@ -1,50 +1,128 @@
 import collections
 import calendar
 import datetime
+import functools
 from tkinter import *
 from tkinter.ttk import *
+from contextlib import contextmanager
 from . import database
 
 
 
-# TODO create widget InputTable to enhance input_rows of _create_new_session
+@contextmanager
+def editable(widget):
+    try:
+        prev_state = widget.config()["state"][-1]
+        widget.configure(state="normal")
+    except AttributeError:
+        # no state attribute for widget
+        prev_state = None
+    yield
+    if prev_state:
+        widget.configure(state=prev_state)
+
+
+# create widget InputTable to enhance input_rows of _create_new_session
 # function. Constructor should take parent widget and starting column, row as
 # arguments.
 class InputsTable:
+    """
+    Helper class to manage inputs layed out in a table like fashion. Use
+    add_column to add column with a header and input class type. Use add_row to
+    add row of inputs.
+    """
 
-    
+
     def __init__(self, master, col0, row0):
         self._master = master
         self._col0 = col0
         self._row0 = row0
         self._columns = []
         self._rows = []
+        self._default_values = []
+
+
+    @property
+    def rows(self):
+        return self._rows.copy()
+
+
+    @property
+    def columns(self):
+        return self._columns.copy()
+
+
+    def _set_value(self, widget, value):
+        with editable(widget):
+            widget.delete(0, 'end')
+            _class = widget.__class__
+            if _class == Entry or _class == Spinbox:
+                widget.insert(0, value)
+            elif _class == Combobox:
+                widget.set(value)
 
 
     def add_column(self, heading, input_class):
-        # TODO
-        return
+        col = self._col0 + len(self._columns)
+        header = Label(self._master, text=heading)
+        header.grid(column=col, row=self._row0, padx=5, pady=5)
+        self._columns.append((col, header, input_class))
 
 
-    def remove_column(self, **kwargs):
-        # TODO if heading or index is in kwargs, remove accordingly
-        return
+    def remove_column(self, index):
+        if len(self._columns) > index:
+            del self._columns[index]
+            for r in self._rows:
+                r[index].destroy()
+                del r[index]
 
 
     def add_row(self, widgets_list):
         assert len(widgets_list) == len(self._columns)
-        for i, (w, grid_ops) in enumerate(widgets_list):
-            # TODO if w is not instance of input_class raise error else place
-            # it in master with grid_ops
-            pass
+        row = self._row0 + 1 + len(self._rows)
+        rowlst = []
+        defvals = []
+        for i, (widget_ops, grid_ops, bind_ops) in enumerate(widgets_list):
+            widget_ops["master"] = self._master
+            default_value = widget_ops.pop("default_value", None)
+            grid_ops["column"] = self._columns[i][0]
+            grid_ops["row"] = row
+            _class = self._columns[i][2]
+            w = _class(**widget_ops)
+            if default_value:
+                self._set_value(w, default_value)
+            if bind_ops:
+                w.bind(**bind_ops)
+            w.grid(**grid_ops)
+            rowlst.append(w)
+            defvals.append(default_value)
+        self._rows.append(rowlst)
+        self._default_values.append(defvals)
 
 
     def remove_row(self):
-        # TODO remove last added row
         if self._rows:
-            last = self._rows[-1]
+            last = self._rows.pop()
             for w in last:
                 w.destroy()
+
+
+    def configure_input(self, column, row, **options):
+        for row_id, r in enumerate(self._rows):
+            if row == row_id:
+                for col_id, w in enumerate(r):
+                    if col_id == column:
+                        w.configure(**options)
+                        break
+
+    
+    def reset_default_values(self):
+        for row_id, row in enumerate(self._rows):
+            for col_id, w in enumerate(row):
+                dv = self._default_values[row_id][col_id]
+                if dv is not None:
+                    self._set_value(w, dv)
+
 
 
 class ConfirmationWindow(Toplevel):
@@ -338,10 +416,9 @@ class Application(Tk):
                     # get new values from calendar and update database
                     new_date = c.get_selected_date()
                     if new_date:
-                        date_entry.configure(state="normal")
-                        date_entry.delete(0, 'end')
-                        date_entry.insert(0, new_date)
-                        date_entry.configure(state="readonly")
+                        with editable(date_entry):
+                            date_entry.delete(0, 'end')
+                            date_entry.insert(0, new_date)
                     date_form.destroy()
 
                 date_form = Toplevel(form)
@@ -352,10 +429,55 @@ class Application(Tk):
                                                             padx=5, pady=5)
                 c = Calendar(date_form, 0, 0, default_date=date_entry.get())
 
-            # TODO open up form for edditing session
+            def populate_dropdowns(*args):
+                selected = [w[0].get().split(",")[-1].strip() for w in inputs.rows if w[0].get()]
+                non_selected = [e[1] + ", " + e[2] for e in exercises if e[2] not in selected]
+                for row_id in range(len(inputs.rows)):
+                    inputs.configure_input(0, row_id, values=['']+non_selected)
+
+            def on_ok_click():
+                # get new session details
+                new_session_date = date_entry.get()
+                if new_session_date != session["values"][0]:
+                    database.update_session(session["text"],
+                                            timestamp=new_session_date)
+                
+                for old_sd, new_sd in zip(session_details, inputs.rows):
+                    [new_eid] = [e[0] for e in exercises if e[2] == new_sd[0].get().split(",")[-1].strip()]
+                    new_weight = new_sd[1].get()
+                    new_tot_reps = new_sd[2].get()
+                    new_sets = new_sd[3].get()
+                    new_instensity = new_sd[4].get()
+
+                    new_vals = {}
+                    if old_sd[2] != new_eid:
+                        new_vals["exercise_id"] = new_eid
+                    if old_sd[3] != new_weight:
+                        new_vals["weight_kg"] = new_weight
+                    if old_sd[4] != new_tot_reps:
+                        new_vals["reps_total"] = new_tot_reps
+                    if old_sd[5] != new_sets:
+                        new_vals["sets"] = new_sets
+                    if old_sd[6] != new_instensity:
+                        new_vals["intensity"] = new_instensity
+
+                    # commit to db if changes have been made
+                    if new_vals:
+                        database.update_session_details(old_sd[0], **new_vals)
+                self.__populate_table()
+                form.destroy()
+
+            def on_reset_click():
+                with editable(date_entry):
+                    date_entry.delete(0, 'end')
+                    date_entry.insert(0, session["values"][0])
+                inputs.reset_default_values()
+                populate_dropdowns()
+
+            # open up form for edditing session
             form = Toplevel(self)
             form.title("Edit session")
-            form.columnconfigure(0, weight=1)
+            form.columnconfigure(1, weight=1)
             form.rowconfigure(1, weight=1)
 
             # session details
@@ -380,11 +502,54 @@ class Application(Tk):
                                                                   pady=5)
 
 
-
             # exercise details
+            exercises = database.get_exercise()
             ed_frame = Frame(form)
-            ed_frame.grid(column=0, row=1)
+            ed_frame.grid(column=0, row=1, columnspan=2, sticky=(N, S, E, W),
+                          pady=(10, 10))
+            inputs = InputsTable(ed_frame, 0, 0)
+            for header, input_class in (
+                ("Exercise", Combobox),
+                ("Weight, kg", Entry),
+                ("Total repetitions", Entry),
+                ("Sets", Entry),
+                ("Intensity", Spinbox)
+            ):
+                inputs.add_column(header, input_class)
+            session_details = database.get_session_details(
+                session_id=session["text"])
+            for sd in session_details:
+                [exercise] = [e for e in exercises if e[0] == sd[2]]
+                exercise_label = exercise[1] + ", " + exercise[2]
+                widget_list = [
+                    ({"master": ed_frame, "state": "readonly",
+                      "default_value": exercise_label},
+                     {"padx": 5, "pady": 5},
+                     {"sequence": "<<ComboboxSelected>>", "func": populate_dropdowns}),
+                    ({"master": ed_frame, "default_value": sd[3]},
+                     {"padx": 5, "pady": 5}, None),
+                    ({"master": ed_frame, "default_value": sd[4]},
+                     {"padx": 5, "pady": 5}, None),
+                    ({"master": ed_frame, "default_value": sd[5]},
+                     {"padx": 5, "pady": 5}, None),
+                    ({"master": ed_frame, "default_value": sd[6], 
+                      "values": list(range(1, 11)), "wrap": True,
+                      "state": "readonly"},
+                     {"padx": 5, "pady": 5}, None)
+                ]
+                inputs.add_row(widget_list)
+            populate_dropdowns()
 
+            # create ok button, reset button and calcel button
+            btn_frame = Frame(form)
+            btn_frame.grid(column=0, row=2, columnspan=2, sticky=(N, S, E, W))
+            btn_frame.columnconfigure(1, weight=1)
+            Button(btn_frame, text="OK", command=on_ok_click).grid(
+                column=0, row=0, padx=5, pady=5, sticky=W)
+            Button(btn_frame, text="Reset", command=on_reset_click).grid(
+                column=2, row=0, padx=5, pady=5, sticky=E)
+            Button(btn_frame, text="Cancel", command=form.destroy).grid(
+                column=3, row=0, padx=5, pady=5, sticky=E)
 
 
             form.update()
