@@ -8,6 +8,9 @@ from contextlib import contextmanager
 from . import database
 
 
+# TODO create error popup window
+
+
 
 @contextmanager
 def editable(widget):
