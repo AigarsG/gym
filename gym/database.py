@@ -74,15 +74,6 @@ def init_db():
         '''
         CREATE TABLE IF NOT EXISTS {}  (
             _id INTEGER PRIMARY KEY,
-            level INTEGER NOT NULL UNIQUE CHECK (level > 0 AND level < 11),
-            description TEXT
-        );
-        '''.format(settings.INTENSITY_TABLE)
-    )
-    _execute_query(
-        '''
-        CREATE TABLE IF NOT EXISTS {}  (
-            _id INTEGER PRIMARY KEY,
             session_id INTEGER REFERENCES {} (_id) ON DELETE CASCADE,
             exercise_id INTEGER REFERENCES {} (_id),
             weight_kg REAL NOT NULL DEFAULT 0 CHECK (weight_kg >= 0),

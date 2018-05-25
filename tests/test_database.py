@@ -38,7 +38,6 @@ def test_database_tables(test_db_fixture):
 
     assert gym.settings.SESSION_TABLE in tables
     assert gym.settings.EXERCISE_TABLE in tables
-    assert gym.settings.INTENSITY_TABLE in tables
     assert gym.settings.SESSION_DETAILS_TABLE in tables
 
 
