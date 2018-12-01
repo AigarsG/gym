@@ -595,8 +595,8 @@ class Application(Tk):
 
         # set min and max windows size
         form.update()
-        form.minsize(self.winfo_width(), form.winfo_height())
-        form.maxsize(self.winfo_width(), form.winfo_height())
+        form.minsize(form.winfo_screenwidth() // 8, form.winfo_height())
+        form.maxsize(form.winfo_screenwidth() // 8, form.winfo_height())
 
 
     def __create_new_session(self, root):
