@@ -617,6 +617,9 @@ class Application(Tk):
             Button(btn_frame, text="Cancel", command=form.destroy).grid(
                 column=3, row=0, padx=5, pady=5, sticky=E)
 
+            # TODO add possibility to add additional exercises
+            #b = Button(form, text="Add more exercises", command=lambda: input_rows.add_input_rows(1))
+            #b.grid(column=4, row=98, padx=5, pady=5, sticky=(N, W, S, E))
 
             form.update()
             form.minsize(form.winfo_width(), form.winfo_height())
