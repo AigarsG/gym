@@ -115,7 +115,7 @@ class InputsTable:
                         w.configure(**options)
                         break
 
-    
+
     def reset_default_values(self):
         for row_id, row in enumerate(self._rows):
             for col_id, w in enumerate(row):
@@ -136,9 +136,9 @@ class ConfirmationWindow(Toplevel):
         self._on_reject_command = self.destroy
         if on_reject_command:
             self._on_reject_command = on_reject_command
-        
+
         self._create_widgets()
-        
+
         self.update()
         self.minsize(self.winfo_width(), self.winfo_height())
         self.maxsize(self.winfo_width(), self.winfo_height())
@@ -167,7 +167,7 @@ class ConfirmationWindow(Toplevel):
         Button(self, text="Cancel",
                command=self._on_reject_command).grid(column=2, row=1, padx=5,
                                                      pady=5)
-       
+
 
 class Calendar:
 
@@ -276,6 +276,72 @@ class Calendar:
         return None
 
 
+class InputRows:
+
+    def __init__(self, form, exercises, row0=4):
+        self._form = form
+        self._row0 = row0
+        self._rows = []
+        self._exercises = exercises
+
+    @property
+    def rows(self):
+        return self._rows.copy()
+
+    def add_input_rows(self, count=5):
+        _maxrows = len(self._exercises)
+        _min, _max = self._row0, self._row0 + count
+        for row_id in range(_min, _max):
+            if len(self._rows) == _maxrows:
+                break
+            row = tuple()
+            # add exercise dropdown
+            # updated
+            cb = Combobox(self._form, state="readonly")
+            cb.bind("<<ComboboxSelected>>", self.populate_dropdowns)
+            cb.grid(column=0, row=row_id, padx=5, pady=5)
+            row += (cb,)
+            # add weight entry
+            e = Entry(self._form)
+            e.grid(column=1, row=row_id, padx=5, pady=5)
+            row += (e,)
+            # add total repetitions entry
+            e = Entry(self._form)
+            e.grid(column=2, row=row_id, padx=5, pady=5)
+            row += (e,)
+            # add sets entry
+            e = Entry(self._form)
+            e.grid(column=3, row=row_id, padx=5, pady=5)
+            row += (e,)
+            # add intensity entry
+            e = Spinbox(self._form, values=list(range(1, 11)), wrap=True,
+                        state="readonly")
+            e.grid(column=4, row=row_id, padx=5, pady=5)
+            row += (e,)
+            self._rows.append(row)
+            self._row0 += 1
+        self._form.update_idletasks()
+        self._form.minsize(self._form.winfo_reqwidth(), self._form.winfo_reqheight())
+        self._form.maxsize(self._form.winfo_reqwidth(), self._form.winfo_reqheight())
+
+        self.populate_dropdowns()
+
+    def populate_dropdowns(self, *args):
+        acronyms = list(map(
+            lambda x: x[0].get().split(",")[-1].strip(), self._rows
+        ))
+        selected = set(filter(
+            lambda x: x[2] in acronyms,
+            self._exercises
+        ))
+        non_selected = [('', '', '')] + list(self._exercises.difference(
+            selected))
+        for r in self._rows:
+            dd = r[0]
+            dd.configure(values=list(map(
+                lambda x: x[1] + ", " + x[2] if x[1] else '', non_selected
+            )))
+
 
 class Application(Tk):
 
@@ -308,10 +374,10 @@ class Application(Tk):
             text = "{}".format(headers[i])
             self.table.heading(colid, text=text, anchor="w")
             self.table.column(colid, anchor="w")
-        
+
         # populate table
         self.__populate_table()
-        
+
         ## create buttons
 
         # details button
@@ -441,7 +507,7 @@ class Application(Tk):
                 if new_session_date != session["values"][0]:
                     database.update_session(session["text"],
                                             timestamp=new_session_date)
-                
+
                 for old_sd, new_sd in zip(session_details, inputs.rows):
                     [new_eid] = [e[0] for e in exercises if e[2] == new_sd[0].get().split(",")[-1].strip()]
                     new_weight = new_sd[1].get()
@@ -532,7 +598,7 @@ class Application(Tk):
                      {"padx": 5, "pady": 5}, None),
                     ({"master": ed_frame, "default_value": sd[5]},
                      {"padx": 5, "pady": 5}, None),
-                    ({"master": ed_frame, "default_value": sd[6], 
+                    ({"master": ed_frame, "default_value": sd[6],
                       "values": list(range(1, 11)), "wrap": True,
                       "state": "readonly"},
                      {"padx": 5, "pady": 5}, None)
@@ -631,73 +697,14 @@ class Application(Tk):
             form.destroy()
             self.__populate_table()
 
-        class input_rows:
-            row0 = 4
-            rows = []
-
-            @classmethod
-            def add_input_rows(cls, count=5):
-                _maxrows = len(exercises)
-                _min, _max = cls.row0, cls.row0 + count
-                for row_id in range(_min, _max):
-                    if len(cls.rows) == _maxrows:
-                        break
-                    row = tuple()
-                    # add exercise dropdown
-                    # updated
-                    cb = Combobox(form, state="readonly")
-                    cb.bind("<<ComboboxSelected>>", cls.populate_dropdowns)
-                    cb.grid(column=0, row=row_id, padx=5, pady=5)
-                    row += (cb,)
-                    # add weight entry
-                    e = Entry(form)
-                    e.grid(column=1, row=row_id, padx=5, pady=5)
-                    row += (e,)
-                    # add total repetitions entry
-                    e = Entry(form)
-                    e.grid(column=2, row=row_id, padx=5, pady=5)
-                    row += (e,)
-                    # add sets entry
-                    e = Entry(form)
-                    e.grid(column=3, row=row_id, padx=5, pady=5)
-                    row += (e,)
-                    # add intensity entry
-                    e = Spinbox(form, values=list(range(1, 11)), wrap=True,
-                                state="readonly")
-                    e.grid(column=4, row=row_id, padx=5, pady=5)
-                    row += (e,)
-                    cls.rows.append(row)
-                    cls.row0 += 1
-                form.update_idletasks()
-                form.minsize(form.winfo_reqwidth(), form.winfo_reqheight())
-                form.maxsize(form.winfo_reqwidth(), form.winfo_reqheight())
-
-                cls.populate_dropdowns()
-
-            @classmethod
-            def populate_dropdowns(cls, *args):
-                acronyms = list(map(
-                    lambda x: x[0].get().split(",")[-1].strip(), cls.rows
-                ))
-                selected = set(filter(
-                    lambda x: x[2] in acronyms,
-                    exercises
-                ))
-
-                non_selected = [('', '', '')] + list(exercises.difference(
-                    selected))
-
-                for r in cls.rows:
-                    dd = r[0]
-                    dd.configure(values=list(map(
-                        lambda x: x[1] + ", " + x[2] if x[1] else '', non_selected
-                    )))
-
         root.withdraw()
         form = Toplevel(root)
         form.title("New session")
         form.columnconfigure(0, weight=1)
         form.rowconfigure(0, weight=1)
+
+        exercises = set(database.get_exercise())
+        input_rows = InputRows(form, exercises)
 
         # session date selection
         cal = Calendar(form, 0, 0)
@@ -727,7 +734,6 @@ class Application(Tk):
         Label(form, text="Intensity", anchor=W, justify=LEFT).grid(
             column=4, row=3, padx=5, pady=5)
 
-        exercises = set(database.get_exercise())
         input_rows.add_input_rows()
 
         # set min and max windows size
@@ -767,7 +773,7 @@ class Application(Tk):
                     "Are you sure you want to delete selected exercise?",
                     _delete
                 )
-                
+
         def __get_exercisecb_values():
             return [""] + [e[1] + ", " + e[2] if e else "" for e in exercises]
 
