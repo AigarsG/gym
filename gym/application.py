@@ -508,7 +508,8 @@ class Application(Tk):
                     database.update_session(session["text"],
                                             timestamp=new_session_date)
 
-                for old_sd, new_sd in zip(session_details, inputs.rows):
+                changes = inputs.rows[:len(session_details)]
+                for old_sd, new_sd in zip(session_details, changes):
                     [new_eid] = [e[0] for e in exercises if e[2] == new_sd[0].get().split(",")[-1].strip()]
                     new_weight = new_sd[1].get()
                     new_tot_reps = new_sd[2].get()
@@ -530,6 +531,27 @@ class Application(Tk):
                     # commit to db if changes have been made
                     if new_vals:
                         database.update_session_details(old_sd[0], **new_vals)
+
+                if len(inputs.rows) > len(session_details):
+                    new_exercises = inputs.rows[len(session_details):]
+                    for ex in new_exercises:
+                        acronym = ex[0].get().split(",")[-1].strip()
+                        eid = list(filter(lambda x: x[2] == acronym, exercises))[-1][0]
+                        weight = ex[1].get()
+                        tot_reps = ex[2].get()
+                        sets = ex[3].get()
+                        intensity = ex[4].get()
+
+                        entry = {
+                            "session_id": session["text"],
+                            "exercise_id": eid,
+                            "weight_kg": float(weight),
+                            "reps_total": int(tot_reps),
+                            "sets": int(sets),
+                            "intensity": int(intensity),
+                        }
+                        database.insert_session_details(**entry)
+
                 self.__populate_table()
                 form.destroy()
 
@@ -540,11 +562,27 @@ class Application(Tk):
                 inputs.reset_default_values()
                 populate_dropdowns()
 
+            def add_new_exercise():
+                new_exercise = [
+                    ({"master": ed_frame}, {"padx": 5, "pady": 5},
+                     {"sequence": "<<ComboboxSelected>>", "func": populate_dropdowns}),
+                    ({"master": ed_frame}, {"padx": 5, "pady": 5}, None),
+                    ({"master": ed_frame}, {"padx": 5, "pady": 5}, None),
+                    ({"master": ed_frame}, {"padx": 5, "pady": 5}, None),
+                    ({"master": ed_frame, "values": list(range(1, 11)), "wrap": True},
+                     {"padx": 5, "pady": 5}, None)
+                ]
+                inputs.add_row(new_exercise)
+                populate_dropdowns()
+                form.update()
+                form.minsize(form.winfo_reqwidth(), form.winfo_reqheight())
+                form.maxsize(form.winfo_reqwidth(), form.winfo_reqheight())
+
             # open up form for edditing session
             form = Toplevel(self)
             form.title("Edit session")
             form.columnconfigure(1, weight=1)
-            form.rowconfigure(1, weight=1)
+            form.rowconfigure(2, weight=1)
 
             # session details
             sd_frame = Frame(form)
@@ -566,7 +604,6 @@ class Application(Tk):
                                                                   row=1,
                                                                   padx=5,
                                                                   pady=5)
-
 
             # exercise details
             exercises = database.get_exercise()
@@ -602,6 +639,7 @@ class Application(Tk):
                      {"padx": 5, "pady": 5}, None)
                 ]
                 inputs.add_row(widget_list)
+
             populate_dropdowns()
 
             # create ok button, reset button and calcel button
@@ -609,15 +647,15 @@ class Application(Tk):
             btn_frame.grid(column=0, row=2, columnspan=2, sticky=(N, S, E, W))
             btn_frame.columnconfigure(1, weight=1)
             Button(btn_frame, text="OK", command=on_ok_click).grid(
-                column=0, row=0, padx=5, pady=5, sticky=W)
+                column=0, row=1, padx=5, pady=5, sticky=W)
             Button(btn_frame, text="Reset", command=on_reset_click).grid(
-                column=2, row=0, padx=5, pady=5, sticky=E)
+                column=2, row=1, padx=5, pady=5, sticky=E)
             Button(btn_frame, text="Cancel", command=form.destroy).grid(
-                column=3, row=0, padx=5, pady=5, sticky=E)
+                column=3, row=1, padx=5, pady=5, sticky=E)
 
-            # TODO add possibility to add additional exercises
-            #b = Button(form, text="Add more exercises", command=lambda: input_rows.add_input_rows(1))
-            #b.grid(column=4, row=98, padx=5, pady=5, sticky=(N, W, S, E))
+            # Add additional exercises to the session
+            b = Button(btn_frame, text="Add exercise", command=add_new_exercise)
+            b.grid(column=3, row=0, padx=5, pady=5, sticky=(N, W, S, E))
 
             form.update()
             form.minsize(form.winfo_width(), form.winfo_height())
