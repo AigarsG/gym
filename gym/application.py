@@ -588,8 +588,7 @@ class Application(Tk):
                 [exercise] = [e for e in exercises if e[0] == sd[2]]
                 exercise_label = exercise[1] + ", " + exercise[2]
                 widget_list = [
-                    ({"master": ed_frame, "state": "readonly",
-                      "default_value": exercise_label},
+                    ({"master": ed_frame, "default_value": exercise_label},
                      {"padx": 5, "pady": 5},
                      {"sequence": "<<ComboboxSelected>>", "func": populate_dropdowns}),
                     ({"master": ed_frame, "default_value": sd[3]},
@@ -599,8 +598,7 @@ class Application(Tk):
                     ({"master": ed_frame, "default_value": sd[5]},
                      {"padx": 5, "pady": 5}, None),
                     ({"master": ed_frame, "default_value": sd[6],
-                      "values": list(range(1, 11)), "wrap": True,
-                      "state": "readonly"},
+                      "values": list(range(1, 11)), "wrap": True},
                      {"padx": 5, "pady": 5}, None)
                 ]
                 inputs.add_row(widget_list)
