@@ -345,6 +345,7 @@ class InputRows:
 
 class Application(Tk):
 
+    _SESSION_NR_LABEL = "NR"
 
     def __init__(self, master=None):
 
@@ -367,8 +368,13 @@ class Application(Tk):
         ## create table
         self.table = Treeview(self.table_frame, selectmode="browse")
         self.table.grid(column=0, row=0, sticky=(N, S, E, W))
+
+        # Add record number column
         headers = list(map(str.upper, database.get_session_headers()))
-        self.table['columns'] = headers[1:]
+        # Replace internal _ID with record number
+        headers[0] = "NR"
+
+        self.table['columns'] = headers
         for i in range(len(headers)):
             colid = "#{}".format(i)
             text = "{}".format(headers[i])
@@ -411,8 +417,12 @@ class Application(Tk):
     def __populate_table(self):
         self.table.delete(*self.table.get_children())
         sessions = database.get_session()
-        for record in sessions:
-            self.table.insert('', 'end', text="{}".format(record[0]), values=record[1:])
+
+        # Sort by date added
+        sessions.sort(key=lambda record: record[1])
+
+        for i, record in enumerate(sessions):
+            self.table.insert('', 'end', text="{}".format(i), values=record[1:])
 
 
     def __get_selected_session(self):
@@ -435,7 +445,7 @@ class Application(Tk):
                                                      pady=5)
             session_frame = Frame(details_win)
             session_frame.grid(column=0, row=0, sticky=(S, W, N, E))
-            Label(session_frame, text="Session ID:").grid(column=0, row=0,
+            Label(session_frame, text="{}:".format(self._SESSION_NR_LABEL)).grid(column=0, row=0,
                                                           padx=5, pady=5)
             e = Entry(session_frame)
             e.insert(0, session["text"])
@@ -587,7 +597,7 @@ class Application(Tk):
             # session details
             sd_frame = Frame(form)
             sd_frame.grid(column=0, row=0)
-            Label(sd_frame, text="Session ID:").grid(column=0, row=0, padx=5,
+            Label(sd_frame, text="{}:".format(self._SESSION_NR_LABEL)).grid(column=0, row=0, padx=5,
                                                      pady=5)
             e = Entry(sd_frame)
             e.insert(0, session["text"])
