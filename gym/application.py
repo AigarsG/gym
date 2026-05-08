@@ -421,8 +421,15 @@ class Application(Tk):
         # Sort by date added
         sessions.sort(key=lambda record: record[1])
 
+        self.__session_nr_to_id = {}
+
         for i, record in enumerate(sessions):
-            self.table.insert('', 'end', text="{}".format(i), values=record[1:])
+            self.__session_nr_to_id["{}".format(i+1)] = record[0]
+            self.table.insert('', 'end', text="{}".format(i+1), values=record[1:])
+
+
+    def __get_session_id_by_nr(self, nr):
+        return self.__session_nr_to_id[nr]
 
 
     def __get_selected_session(self):
@@ -432,8 +439,8 @@ class Application(Tk):
     def __display_session_details(self):
         session = self.__get_selected_session()
         if session["text"]:
-            session_details = database.get_session_details(
-                session_id=session["text"])
+            session_id = self.__get_session_id_by_nr(session["text"])
+            session_details = database.get_session_details(session_id=session_id)
 
             # create session details window
             details_win = Toplevel(self)
@@ -515,7 +522,7 @@ class Application(Tk):
                 # get new session details
                 new_session_date = date_entry.get()
                 if new_session_date != session["values"][0]:
-                    database.update_session(session["text"],
+                    database.update_session(self.__get_session_id_by_nr(session["text"]),
                                             timestamp=new_session_date)
 
                 changes = inputs.rows[:len(session_details)]
@@ -553,7 +560,7 @@ class Application(Tk):
                         intensity = ex[4].get()
 
                         entry = {
-                            "session_id": session["text"],
+                            "session_id": self.__get_session_id_by_nr(session["text"]),
                             "exercise_id": eid,
                             "weight_kg": float(weight),
                             "reps_total": int(tot_reps),
@@ -630,7 +637,7 @@ class Application(Tk):
             ):
                 inputs.add_column(header, input_class)
             session_details = database.get_session_details(
-                session_id=session["text"])
+                session_id=self.__get_session_id_by_nr(session["text"]))
             for sd in session_details:
                 [exercise] = [e for e in exercises if e[0] == sd[2]]
                 exercise_label = exercise[1] + ", " + exercise[2]
@@ -676,7 +683,7 @@ class Application(Tk):
         session = self.__get_selected_session()
         if session["text"]:
             def do_on_yes():
-                database.delete_session(session["text"])
+                database.delete_session(self.__get_session_id_by_nr(session["text"]))
                 self.__populate_table()
                 c.destroy()
 
